@@ -12,7 +12,8 @@ class NseData():
 	def __init__(self, time_interval):
 		self.time_interval = time_interval
 		self.url_pattern = "https://www1.nseindia.com/content/historical/EQUITIES/2020/MONTH/cmDATEbhav.csv.zip" 
-		self.select_cols = ['SYMBOL', 'SERIES', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 'LAST', 'PREVCLOSE', 'TOTTRDQTY', 'TIMESTAMP']
+		self.select_cols = ['SYMBOL', 'SERIES', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 
+								'LAST', 'PREVCLOSE', 'TOTTRDQTY', 'TIMESTAMP']
 	
 	def get_data(self):
 		url_pattern = "https://www1.nseindia.com/content/historical/EQUITIES/2020/MAR/cm06MAR2020bhav.csv.zip"
@@ -27,12 +28,21 @@ class NseData():
 				month_short_name = single_date.strftime('%b').upper()
 				single_date_format = single_date.strftime('%d%b%Y').upper()
 				url = self.url_pattern.replace('MONTH', month_short_name).replace('DATE', single_date_format)
-				print(pd.read_csv(url, usecols=self.select_cols) )
+				print( url )
+				try:
+					df = pd.read_csv(url, usecols=self.select_cols, parse_dates=[9], dayfirst=True) 
+					print( single_date_format, len(df) )
+				except:
+					continue
+
+				Equities.objects.bulk_create(
+					Equities(**vals) for vals in df.to_dict('records')
+				)
 
 
 	def get_start_date(self):
 		return datetime.datetime.now() - datetime.timedelta(self.time_interval)
 
-nse = NseData(7)
+nse = NseData(30)
 # nse.get_data()
 nse.iter_over_each_day()
