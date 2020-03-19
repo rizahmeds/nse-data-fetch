@@ -9,40 +9,48 @@ from nse.models import Equities
 
 class NseData():
 	"""constructor for NseData"""
-	def __init__(self, time_interval):
-		self.time_interval = time_interval
+	def __init__(self):
+		self.time_interval = 30 # last 30 days data
 		self.url_pattern = "https://www1.nseindia.com/content/historical/EQUITIES/2020/MONTH/cmDATEbhav.csv.zip" 
 		self.select_cols = ['SYMBOL', 'SERIES', 'OPEN', 'HIGH', 'LOW', 'CLOSE', 
 								'LAST', 'PREVCLOSE', 'TOTTRDQTY', 'TIMESTAMP']
-	
-	def get_data(self):
-		url_pattern = "https://www1.nseindia.com/content/historical/EQUITIES/2020/MAR/cm06MAR2020bhav.csv.zip"
-		df = pd.read_csv(url_pattern)
-		print( df.head() )
 
-	def iter_over_each_day(self):
+	def get_each_day_data(self):
 		start_date = self.get_start_date()
+		# Looping over each day
 		for single_date in (start_date + datetime.timedelta(n) for n in range(self.time_interval)):
 			# Only for week days		
 			if single_date.weekday() < 5:
 				month_short_name = single_date.strftime('%b').upper()
 				single_date_format = single_date.strftime('%d%b%Y').upper()
+				"""
+					After getting month name and date format, 
+					replace both in url_pattern 
+				"""
 				url = self.url_pattern.replace('MONTH', month_short_name).replace('DATE', single_date_format)
-				print( url )
+				# print( url )
 				try:
-					df = pd.read_csv(url, usecols=self.select_cols, parse_dates=[9], dayfirst=True) 
-					print( single_date_format, len(df) )
+					dataframe = pd.read_csv(url, usecols=self.select_cols, parse_dates=[9], dayfirst=True) 
+					print( single_date_format, len(dataframe) )
 				except:
+					""" In some cases url is not working for even for weekdays.
+						Used this in order to bypass that exception.
+					"""
 					continue
 
-				Equities.objects.bulk_create(
-					Equities(**vals) for vals in df.to_dict('records')
-				)
-
+				# Save the read data from nse url to djnago models.
+				self.save_data(dataframe) 
 
 	def get_start_date(self):
 		return datetime.datetime.now() - datetime.timedelta(self.time_interval)
 
-nse = NseData(30)
-# nse.get_data()
-nse.iter_over_each_day()
+	def save_data(self, dataframe):
+		"""
+			imported djnago model and executed bulk create for each dataframe.
+		"""
+		Equities.objects.bulk_create(
+			Equities(**vals) for vals in dataframe.to_dict('records')
+		)
+
+nse = NseData()
+nse.get_each_day_data()
